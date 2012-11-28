@@ -13,23 +13,23 @@ Auteur:   Sebastien Valette,
 * Copyright (c) CREATIS-LRMN (Centre de Recherche en Imagerie Medicale)
 * Author : Sebastien Valette
 *
-*  This software is governed by the CeCILL-B license under French law and 
-*  abiding by the rules of distribution of free software. You can  use, 
-*  modify and/ or redistribute the software under the terms of the CeCILL-B 
-*  license as circulated by CEA, CNRS and INRIA at the following URL 
-*  http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html 
+*  This software is governed by the CeCILL-B license under French law and
+*  abiding by the rules of distribution of free software. You can  use,
+*  modify and/ or redistribute the software under the terms of the CeCILL-B
+*  license as circulated by CEA, CNRS and INRIA at the following URL
+*  http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
 *  or in the file LICENSE.txt.
 *
 *  As a counterpart to the access to the source code and  rights to copy,
 *  modify and redistribute granted by the license, users are provided only
 *  with a limited warranty  and the software's author,  the holder of the
 *  economic rights,  and the successive licensors  have only  limited
-*  liability. 
+*  liability.
 *
 *  The fact that you are presently reading this means that you have had
 *  knowledge of the CeCILL-B license and that you accept its terms.
-* ------------------------------------------------------------------------ */  
-// .NAME ACVDQ 
+* ------------------------------------------------------------------------ */
+// .NAME ACVDQ
 // .SECTION Description
 #include <sstream>
 #include <vtkPLYWriter.h>
@@ -41,20 +41,20 @@ Auteur:   Sebastien Valette,
 /////////////////////////////////////////////////////////////////////////////////////////
 // ACVDQ program:
 /////////////////////////////////////////////////////////////////////////////////////////
-// 
+//
 // Adaptive coarsening of triangular meshes (Quadrics enhanced)
 // This program should be run with 3 arguments:
 // run: "acvd file nvertices gradation [options]"
 // file is the name of the mesh file to read
-// nverticew is the desired number of vertices (note: if the number of input 
-// gradation is the gradation parameter (0 is uniform, higher values give more and more importance 
+// nverticew is the desired number of vertices (note: if the number of input
+// gradation is the gradation parameter (0 is uniform, higher values give more and more importance
 //									to regions with high curvature)
 //
-// Additionnal options : 
+// Additionnal options :
 // -d x : sets the graphics display (0 : no display. 1: display. 2 :iterative display)
 //			default value : 1
 //
-// -s x : sets the subsampling threshold (Higher values give better results	 but the input 
+// -s x : sets the subsampling threshold (Higher values give better results	 but the input
 //			mesh will be subdivided more times)
 //			default value : 10
 // -np x : sets the number of wanted threads (useful only with multi-processors machines)
@@ -64,10 +64,10 @@ Auteur:   Sebastien Valette,
 //
 //////////////////////////////////////////////////////////////////////////////////////////
 // References:
-// [1] " Approximated Centroidal Voronoi Diagrams for Uniform 
+// [1] " Approximated Centroidal Voronoi Diagrams for Uniform
 // Polygonal Mesh Coarsening", Valette & Chassery, Eurographics 2004.
 // [2] "Adaptive Polygonal Mesh Simplification With Discrete Centroidal Voronoi Diagrams"
-//  by, S. Valette, I. Kompatsiaris and J.-M. Chassery 
+//  by, S. Valette, I. Kompatsiaris and J.-M. Chassery
 // + non published work....
 /////////////////////////////////////////////////////////////////////////////////////////
 
@@ -84,7 +84,7 @@ int main( int argc, char *argv[] )
 	double Gradation=0;			// the gamma parameter for simplification (if gamma=0: uniform)
 								// other appropriates values range between 0 and 2
 	int SubsamplingThreshold=10;
-	char* OutputDirectory=0;		// the output directory 
+	char* OutputDirectory=0;		// the output directory
 	//*******************************************************************************************
 
 	char filename[500];
@@ -266,26 +266,33 @@ int main( int argc, char *argv[] )
 	Remesh->SetSubsamplingThreshold(SubsamplingThreshold);
 	Remesh->GetMetric()->SetGradation(Gradation);
 
+	Remesh->GetMetric()->Points = vtkPoints::New();
+	Remesh->GetMetric()->Points->SetNumberOfPoints( 5 );
+	for( int i = 0; i < 5; i++ )
+		{
+		Remesh->GetMetric()->Points->SetPoint( i, Mesh->GetPoint( i * 1000 ) );
+		}
+
 	if (Mesh->GetNumberOfPoints()>3000000)
 		Remesh->SetDisplay(0);
 	else
 		Remesh->SetDisplay(Display);
-		
+
 	Remesh->SetConstrainedInitialization(1);
 	Remesh->Remesh();
 
 	// save the output mesh to .ply format
 	char REALFILE[500];
-	
+
 	if (OutputDirectory)
 	{
 		strcpy (REALFILE,OutputDirectory);
 		strcat (REALFILE,"simplification.ply");
-	
+
 	}
 	else
 		strcpy(REALFILE,"simplification.ply");
-	
+
 	vtkPLYWriter *plyWriter=vtkPLYWriter::New();
 	plyWriter->SetInput(Remesh->GetOutput());
 	plyWriter->SetFileName(REALFILE);
@@ -294,5 +301,5 @@ int main( int argc, char *argv[] )
 	Remesh->Delete();
 	Mesh->Delete();
 	if (Display!=0)
-		Window->Delete();	
+		Window->Delete();
 }

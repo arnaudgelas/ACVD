@@ -1,6 +1,6 @@
 /*=========================================================================
 
-Program:   Quadric Error Metric for Clustering 
+Program:   Quadric Error Metric for Clustering
 Module:    vtkQEMetricForClustering.h
 Language:  C++
 Date:      2006/03
@@ -13,22 +13,22 @@ Auteur:    Sebastien VALETTE
 * Copyright (c) CREATIS-LRMN (Centre de Recherche en Imagerie Medicale)
 * Author : Sebastien Valette
 *
-*  This software is governed by the CeCILL-B license under French law and 
-*  abiding by the rules of distribution of free software. You can  use, 
-*  modify and/ or redistribute the software under the terms of the CeCILL-B 
-*  license as circulated by CEA, CNRS and INRIA at the following URL 
-*  http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html 
+*  This software is governed by the CeCILL-B license under French law and
+*  abiding by the rules of distribution of free software. You can  use,
+*  modify and/ or redistribute the software under the terms of the CeCILL-B
+*  license as circulated by CEA, CNRS and INRIA at the following URL
+*  http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
 *  or in the file LICENSE.txt.
 *
 *  As a counterpart to the access to the source code and  rights to copy,
 *  modify and redistribute granted by the license, users are provided only
 *  with a limited warranty  and the software's author,  the holder of the
 *  economic rights,  and the successive licensors  have only  limited
-*  liability. 
+*  liability.
 *
 *  The fact that you are presently reading this means that you have had
 *  knowledge of the CeCILL-B license and that you accept its terms.
-* ------------------------------------------------------------------------ */  
+* ------------------------------------------------------------------------ */
 
 #ifndef _VTKQEMETRICFORCLUSTERING_H_
 #define _VTKQEMETRICFORCLUSTERING_H_
@@ -44,7 +44,7 @@ Auteur:    Sebastien VALETTE
 
 #include "vtkQuadricTools.h"
 
-class  vtkQEMetricForClustering 
+class  vtkQEMetricForClustering
 {
 public:
 
@@ -73,18 +73,18 @@ public:
 		else
 			return (0);
 	}
-	
+
 	int IsPrincipalDirectionsNeeded()
 	{
 		return (0);
 	}
-	
+
 	void SetCurvatureInfo(vtkDataArrayCollection *Info)
 	{
 		if (this->CustomWeights)
 			this->CustomWeights->Delete();
 		this->CustomWeights=(vtkDoubleArray*) Info->GetItem(0);
-		this->CustomWeights->Register(this->Object);		
+		this->CustomWeights->Register(this->Object);
 	}
 
 	void SetGradation(double Gradation)
@@ -110,7 +110,7 @@ public:
 		double Weight;
 	};
 
-	struct Cluster 
+	struct Cluster
 	{
 		// Value of the energy term for this cluster (cached to increase speed by about 33%)
 		double EnergyValue;
@@ -131,11 +131,14 @@ public:
 		char RankDeficiency;
 	};
 
+	vtkPoints* Points;
+	Cluster* Origin;
+
 	int GetClusterRankDeficiency(Cluster *C)
 	{
 		return C->RankDeficiency;
 	}
-	void ResetItem(Item *I) 
+	void ResetItem(Item *I)
 	{
 		int i;
 		for (i=0;i<9;i++)
@@ -145,7 +148,7 @@ public:
 		I->Weight=0;
 	}
 
-	double GetItemWeight(vtkIdType ItemId) 
+	double GetItemWeight(vtkIdType ItemId)
 	{
 		return this->Items[ItemId].Weight;
 	}
@@ -158,7 +161,7 @@ public:
 		Mesh->GetVertexNeighbourFaces(Vertex,FList);
 
 		for (i=0;i<FList->GetNumberOfIds();i++)
-			vtkQuadricTools::AddTriangleQuadric(I->Quadric,Mesh,FList->GetId(i),false);                
+			vtkQuadricTools::AddTriangleQuadric(I->Quadric,Mesh,FList->GetId(i),false);
 
 		Mesh->GetPoint(Vertex,I->Value);
 		for (i=0;i<3;i++)
@@ -197,7 +200,7 @@ public:
 		C->Centroid[0]*C->Centroid[0]
 		+C->Centroid[1]*C->Centroid[1]
 		+C->Centroid[2]*C->Centroid[2])*C->SWeight
-		-2.0*vtkMath::Dot(C->Centroid,C->SValue);			
+		-2.0*vtkMath::Dot(C->Centroid,C->SValue);
 	}
 
 	void DeepCopy(Cluster *Source,Cluster *Destination)
@@ -237,7 +240,7 @@ public:
 	void Sub(Cluster *Source, vtkIdType ItemId, Cluster *Destination)
 	{
 		this->DeepCopy(Source,Destination);
-		this->SubstractItemFromCluster(ItemId, Destination);		
+		this->SubstractItemFromCluster(ItemId, Destination);
 	}
 
 	void SubstractItemFromCluster(vtkIdType ItemId, Cluster *C)
@@ -263,10 +266,19 @@ public:
 
 	void ComputeClusterCentroid(Cluster *C)
 	{
+		size_t ClusterIndex = C-this->Origin;
+		if( this->Points )
+			{
+			if (ClusterIndex < this->Points->GetNumberOfPoints())
+			{
+				this->Points->GetPoint(ClusterIndex, C->Centroid);
+				return;
+			}
+		}
 		C->Centroid[0]=C->SValue[0]/C->SWeight;
 		C->Centroid[1]=C->SValue[1]/C->SWeight;
 		C->Centroid[2]=C->SValue[2]/C->SWeight;
-		
+
 		if (this->ActiveConstraintsFlag==0)
 			return;
 
@@ -274,7 +286,7 @@ public:
 					C->SQuadric,C->Centroid,this->QuadricsOptimizationLevel);
 	}
 
-	void ResetCluster(Cluster *C) 
+	void ResetCluster(Cluster *C)
 	{
 		int i;
 		for (i=0;i<9;i++)
@@ -294,6 +306,9 @@ NumberOfClusters,int ClusteringType)
 		vtkIdType i;
 		// Build the clusters
 		Clusters=new Cluster[NumberOfClusters];
+
+		this->Origin = Clusters;
+
 		for (i=0;i<NumberOfClusters;i++)
 			this->ResetCluster(Clusters+i);
 
@@ -389,11 +404,13 @@ NumberOfClusters,int ClusteringType)
 
 	vtkQEMetricForClustering()
 	{
+		this->Origin=NULL;
+		this->Points=NULL;
 		this->CustomWeights=0;
 		this->Gradation=0;
 		this->ActiveConstraintsFlag=1;
-		this->Object=vtkObject::New();	
-		this->QuadricsOptimizationLevel=3;	
+		this->Object=vtkObject::New();
+		this->QuadricsOptimizationLevel=3;
 	};
 	~vtkQEMetricForClustering()
 	{
@@ -409,9 +426,9 @@ private:
 	int QuadricsOptimizationLevel;
 
 	// Dummy object used for registering the curvature indicators
-	vtkObject	*Object;	
+	vtkObject	*Object;
 	double Gradation;
-	
+
 	// The array storing items
 	Item *Items;
 };
