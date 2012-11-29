@@ -35,6 +35,7 @@ Auteur:   Sebastien Valette,
 #include <vtkPLYWriter.h>
 #include <vtkSTLWriter.h>
 #include <vtkCellData.h>
+#include <list>
 
 #include "vtkIsotropicDiscreteRemeshing.h"
 
@@ -109,8 +110,11 @@ int main( int argc, char *argv[] )
     cout<<"-cf value : set custom indicator multiplication factor"<<endl;
     cout<<"-m 0/1 : enforce a manifold output ON/OFF (default : 0)"<<endl;
     cout<<"-sf spare_factor : sets the spare factor"<<endl;
+    cout<<"--constraints" <<endl;
     return (0);
   }
+
+  std::string constraintsFilename;
 
   vtkSurface *Mesh=vtkSurface::New();
   vtkQIsotropicDiscreteRemeshing *Remesh=vtkQIsotropicDiscreteRemeshing::New();
@@ -241,6 +245,13 @@ int main( int argc, char *argv[] )
       cout<<"Setting spare factor to : "<<argv[ArgumentsIndex+1]<<endl;
       Remesh->SetSpareFactor(atof(argv[ArgumentsIndex+1]));
     }
+
+    if (strcmp(argv[ArgumentsIndex],"--constraints")==0)
+    {
+      cout<<"Setting constraints : "<<argv[ArgumentsIndex+1]<<endl;
+      constraintsFilename = argv[ArgumentsIndex+1];
+    }
+
     ArgumentsIndex+=2;
   }
 
@@ -266,19 +277,102 @@ int main( int argc, char *argv[] )
   Remesh->SetSubsamplingThreshold(SubsamplingThreshold);
   Remesh->GetMetric()->SetGradation(Gradation);
 
-  Remesh->GetMetric()->Points = vtkPoints::New();
-  Remesh->GetMetric()->Points->SetNumberOfPoints( 5 );
-  for( int i = 0; i < 5; i++ )
-    {
-    Remesh->GetMetric()->Points->SetPoint( i, Mesh->GetPoint( i * 1000 ) );
-    }
-
   if (Mesh->GetNumberOfPoints()>3000000)
     Remesh->SetDisplay(0);
   else
     Remesh->SetDisplay(Display);
 
   Remesh->SetConstrainedInitialization(1);
+
+  if( !constraintsFilename.empty() )
+    {
+    std::vector< int > tempList;
+
+    std::ifstream ifs;
+    ifs.open( constraintsFilename.c_str() );
+
+    int id;
+
+    while( ifs.good() )
+      {
+      ifs >> id;
+      tempList.push_back( id );
+      }
+
+    ifs.close();
+
+    std::sort( tempList.begin(), tempList.end() );
+    tempList.erase(std::unique(tempList.begin(), tempList.end()), tempList.end());
+
+    unsigned int N = tempList.size();
+
+    Remesh->GetMetric()->Points = vtkPoints::New();
+    Remesh->GetMetric()->Points->SetNumberOfPoints( N );
+
+    for( unsigned int i = 0; i < N; i++ )
+      {
+      Remesh->GetMetric()->Points->SetPoint( i, Mesh->GetPoint( tempList[i] ) );
+      }
+
+    tempList.resize( NumberOfSamples );
+
+    int delta = ( Mesh->GetNumberOfPoints() - 1 )/ ( NumberOfSamples - 1 );
+
+    for( unsigned int i = N; i < NumberOfSamples; i++ )
+      {
+      int k = i * delta;
+
+      while( std::find( tempList.begin(), tempList.end(), k ) != tempList.end() )
+        {
+        k += delta / 4;
+        if( k >= Mesh->GetNumberOfPoints() )
+          {
+          k = 0;
+          }
+        }
+        tempList[i] = k;
+      }
+
+    std::sort( tempList.begin(), tempList.end() );
+
+    vtkIntArray* InitialCluster = vtkIntArray::New();
+    InitialCluster->SetNumberOfValues( Mesh->GetNumberOfPoints() );
+    InitialCluster->SetNumberOfComponents( 1 );
+
+    int k = 0;
+    for( int i = 0; i < Mesh->GetNumberOfPoints(); i++ )
+      {
+      if( k == 0 )
+        {
+        if( i <= tempList[0] )
+          {
+          InitialCluster->SetValue( i, 0 );
+          }
+        if( i == tempList[0] )
+          {
+          k++;
+          }
+        }
+      else
+        {
+        if( std::abs( i - tempList[ k - 1 ] ) < std::abs( i - tempList[ k ] ) )
+          {
+          InitialCluster->SetValue( i, k - 1 );
+          }
+        else
+          {
+          InitialCluster->SetValue( i, k );
+          }
+        if( i == tempList[k] )
+          {
+          k++;
+          }
+        }
+      }
+
+    Remesh->SetInitialClustering( InitialCluster );
+    }
+
   Remesh->Remesh();
 
   // save the output mesh to .ply format
