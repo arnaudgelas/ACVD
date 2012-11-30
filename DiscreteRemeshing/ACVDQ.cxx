@@ -333,7 +333,7 @@ int main( int argc, char *argv[] )
         tempList[i] = k;
       }
 
-    std::sort( tempList.begin(), tempList.end() );
+//    std::sort( tempList.begin(), tempList.end() );
 
     vtkIntArray* InitialCluster = vtkIntArray::New();
     InitialCluster->SetNumberOfValues( Mesh->GetNumberOfPoints() );
