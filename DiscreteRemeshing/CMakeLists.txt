@@ -13,12 +13,21 @@ vtkManifoldSimplification.cxx
 
 SET(LIB_ADDED
 vtkSurface
-vtkCommon
-vtkFiltering
-vtkImaging
-vtkIO
-vtkRendering
-vtkHybrid)
+)
+
+IF( VTK_LIBRARIES )
+  SET( LIB_ADDED ${LIB_ADDED}
+    ${VTK_LIBRARIES} )
+ELSE()
+  SET(LIB_ADDED ${LIB_ADDED}
+    vtkCommon
+    vtkFiltering
+    vtkImaging
+    vtkIO
+    vtkRendering
+    vtkHybrid
+  )
+ENDIF()
 
 TARGET_LINK_LIBRARIES(vtkDiscreteRemeshing ${LIB_ADDED})
 
