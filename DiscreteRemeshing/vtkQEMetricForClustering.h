@@ -112,6 +112,8 @@ public:
 
 	struct Cluster
 	{
+		bool	Fixed;
+
 		// Value of the energy term for this cluster (cached to increase speed by about 33%)
 		double EnergyValue;
 
@@ -221,6 +223,7 @@ public:
 	void Add(Cluster *Source, vtkIdType ItemId, Cluster *Destination)
 	{
 		this->DeepCopy(Source,Destination);
+		Destination->Fixed = Source->Fixed;
 		this->AddItemToCluster(ItemId, Destination);
 	}
 
@@ -240,6 +243,7 @@ public:
 	void Sub(Cluster *Source, vtkIdType ItemId, Cluster *Destination)
 	{
 		this->DeepCopy(Source,Destination);
+		Destination->Fixed = Source->Fixed;
 		this->SubstractItemFromCluster(ItemId, Destination);
 	}
 
@@ -266,15 +270,9 @@ public:
 
 	void ComputeClusterCentroid(Cluster *C)
 	{
-		size_t ClusterIndex = C-this->Origin;
-		if( this->Points )
-			{
-			if (ClusterIndex < this->Points->GetNumberOfPoints())
-			{
-				this->Points->GetPoint(ClusterIndex, C->Centroid);
-				return;
-			}
-		}
+		if( C->Fixed )
+			return;
+
 		C->Centroid[0]=C->SValue[0]/C->SWeight;
 		C->Centroid[1]=C->SValue[1]/C->SWeight;
 		C->Centroid[2]=C->SValue[2]/C->SWeight;
@@ -288,6 +286,15 @@ public:
 
 	void ResetCluster(Cluster *C)
 	{
+		size_t ClusterIndex = C-this->Origin;
+		if( this->Points )
+			{
+			if (ClusterIndex < this->Points->GetNumberOfPoints())
+			{
+				this->Points->GetPoint(ClusterIndex, C->Centroid);
+				return;
+			}
+		}
 		int i;
 		for (i=0;i<9;i++)
 			C->SQuadric[i]=0;
@@ -307,7 +314,18 @@ NumberOfClusters,int ClusteringType)
 		// Build the clusters
 		Clusters=new Cluster[NumberOfClusters];
 
+		for(i=0;i<NumberOfClusters;i++)
+			( Clusters + i )->Fixed = false;
+
 		this->Origin = Clusters;
+
+		if( this->Points )
+			{
+			for(i=0; i<this->Points->GetNumberOfPoints(); i++)
+				{
+				( Clusters + i )->Fixed = true;
+				}
+			}
 
 		for (i=0;i<NumberOfClusters;i++)
 			this->ResetCluster(Clusters+i);
