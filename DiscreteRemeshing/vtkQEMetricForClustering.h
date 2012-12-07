@@ -209,6 +209,7 @@ public:
 	{
 		int i;
 		Destination->SWeight=Source->SWeight;
+		Destination->Fixed = Source->Fixed;
 		for (i=0;i<3;i++)
 		{
 			Destination->SValue[i]=Source->SValue[i];
@@ -223,7 +224,6 @@ public:
 	void Add(Cluster *Source, vtkIdType ItemId, Cluster *Destination)
 	{
 		this->DeepCopy(Source,Destination);
-		Destination->Fixed = Source->Fixed;
 		this->AddItemToCluster(ItemId, Destination);
 	}
 
@@ -243,7 +243,6 @@ public:
 	void Sub(Cluster *Source, vtkIdType ItemId, Cluster *Destination)
 	{
 		this->DeepCopy(Source,Destination);
-		Destination->Fixed = Source->Fixed;
 		this->SubstractItemFromCluster(ItemId, Destination);
 	}
 
@@ -286,13 +285,16 @@ public:
 
 	void ResetCluster(Cluster *C)
 	{
-		size_t ClusterIndex = C-this->Origin;
-		if( this->Points )
+		if( C->Fixed )
 			{
-			if (ClusterIndex < this->Points->GetNumberOfPoints())
-			{
-				this->Points->GetPoint(ClusterIndex, C->Centroid);
-				return;
+			size_t ClusterIndex = C-this->Origin;
+			if( this->Points )
+				{
+				if (ClusterIndex < this->Points->GetNumberOfPoints())
+				{
+					this->Points->GetPoint(ClusterIndex, C->Centroid);
+					return;
+				}
 			}
 		}
 		int i;

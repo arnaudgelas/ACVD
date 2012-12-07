@@ -110,11 +110,13 @@ int main( int argc, char *argv[] )
     cout<<"-cf value : set custom indicator multiplication factor"<<endl;
     cout<<"-m 0/1 : enforce a manifold output ON/OFF (default : 0)"<<endl;
     cout<<"-sf spare_factor : sets the spare factor"<<endl;
-    cout<<"--constraints" <<endl;
+    cout<<"--constraints filename" <<endl;
+    cout<<"--init filename" <<endl;
     return (0);
   }
 
   std::string constraintsFilename;
+  std::string initFilename;
 
   vtkSurface *Mesh=vtkSurface::New();
   vtkQIsotropicDiscreteRemeshing *Remesh=vtkQIsotropicDiscreteRemeshing::New();
@@ -252,6 +254,12 @@ int main( int argc, char *argv[] )
       constraintsFilename = argv[ArgumentsIndex+1];
     }
 
+    if (strcmp(argv[ArgumentsIndex],"--init")==0)
+    {
+      cout<<"Setting initialisation file : "<<argv[ArgumentsIndex+1]<<endl;
+      initFilename = argv[ArgumentsIndex+1];
+    }
+
     ArgumentsIndex+=2;
   }
 
@@ -284,7 +292,7 @@ int main( int argc, char *argv[] )
 
   Remesh->SetConstrainedInitialization(1);
 
-  if( !constraintsFilename.empty() )
+  if( constraintsFilename != "" )
     {
     std::vector< int > tempList;
 
@@ -314,23 +322,37 @@ int main( int argc, char *argv[] )
       Remesh->GetMetric()->Points->SetPoint( i, Mesh->GetPoint( tempList[i] ) );
       }
 
-    tempList.resize( NumberOfSamples );
-
-    int delta = ( Mesh->GetNumberOfPoints() - 1 )/ ( NumberOfSamples - 1 );
-
-    for( unsigned int i = N; i < NumberOfSamples; i++ )
+    if( initFilename != "" )
       {
-      int k = i * delta;
+      ifs.open( initFilename.c_str() );
 
-      while( std::find( tempList.begin(), tempList.end(), k ) != tempList.end() )
+      while( ifs.good() )
         {
-        k += delta / 4;
-        if( k >= Mesh->GetNumberOfPoints() )
-          {
-          k = 0;
-          }
+        ifs >> id;
+        tempList.push_back( id );
         }
-        tempList[i] = k;
+      ifs.close();
+      }
+    else
+      {
+      N = tempList.size();
+      int delta = ( Mesh->GetNumberOfPoints() - 1 )/ ( NumberOfSamples - N );
+
+      for( unsigned int i = N; i < NumberOfSamples; i++ )
+        {
+        int k = ( i - N ) * delta;
+
+        while( std::find( tempList.begin(), tempList.end(), k ) != tempList.end() )
+          {
+          k += delta / 4;
+          if( k >= Mesh->GetNumberOfPoints() )
+            {
+            k = 0;
+            }
+          }
+        std::cout << k << std::endl;
+        tempList.push_back( k );
+        }
       }
 
 //    std::sort( tempList.begin(), tempList.end() );
@@ -339,34 +361,20 @@ int main( int argc, char *argv[] )
     InitialCluster->SetNumberOfValues( Mesh->GetNumberOfPoints() );
     InitialCluster->SetNumberOfComponents( 1 );
 
-    int k = 0;
     for( int i = 0; i < Mesh->GetNumberOfPoints(); i++ )
       {
-      if( k == 0 )
+      std::vector< int >::iterator it = std::find( tempList.begin(), tempList.end(), i );
+
+      if( it != tempList.end() )
         {
-        if( i <= tempList[0] )
-          {
-          InitialCluster->SetValue( i, 0 );
-          }
-        if( i == tempList[0] )
-          {
-          k++;
-          }
+        int k = static_cast< int >( it - tempList.begin() );
+        InitialCluster->SetValue( i, k );
         }
       else
         {
-        if( std::abs( i - tempList[ k - 1 ] ) < std::abs( i - tempList[ k ] ) )
-          {
-          InitialCluster->SetValue( i, k - 1 );
-          }
-        else
-          {
-          InitialCluster->SetValue( i, k );
-          }
-        if( i == tempList[k] )
-          {
-          k++;
-          }
+        InitialCluster->SetValue( i, NumberOfSamples );
+//        int k = static_cast< int >( vtkMath::Random( 0, NumberOfSamples ) );
+//        InitialCluster->SetValue( i, k );
         }
       }
 
